@@ -1,0 +1,58 @@
+import geemap
+import folium
+import ipywidgets as widgets
+from datetime import datetime
+
+# Autenticati su Google Earth Engine
+geemap.ee_initialize()
+
+# Definisci l'area di interesse: la Striscia di Gaza
+gaza = ee.Geometry.Rectangle([34.2, 31.2, 34.6, 31.6])
+
+# Carica il dataset Landsat (ad esempio, Landsat 8)
+landsat = ee.ImageCollection('LANDSAT/LC08/C01/T1_TOA').filterBounds(gaza)
+
+# Funzione per creare una mappa con un'immagine per una specifica data
+def get_landsat_image(date):
+    date = ee.Date(date)
+    image = landsat.filterDate(date, date.advance(1, 'month')).median()
+    vis_params = {
+        'bands': ['B4', 'B3', 'B2'],
+        'min': 0,
+        'max': 0.3,
+        'gamma': [0.95, 1.1, 1]
+    }
+    return image.visualize(**vis_params)
+
+# Date di interesse
+dates = [f'{year}-01-01' for year in range(2013, 2024)]
+
+# Crea una mappa di base
+m = geemap.Map(center=[31.4, 34.4], zoom=10)
+
+# Slider per la selezione della data
+date_slider = widgets.SelectionSlider(
+    options=dates,
+    value=dates[0],
+    description='Data',
+    continuous_update=False,
+    orientation='horizontal',
+    readout=True
+)
+
+# Funzione per aggiornare la mappa
+def update_map(date):
+    date = datetime.strptime(date, '%Y-%m-%d')
+    image = get_landsat_image(date)
+    m.addLayer(image, {}, f'Landsat {date.year}')
+    m.add_legend(builtin_legend='Landsat')
+
+# Collegare lo slider alla funzione di aggiornamento
+widgets.interactive(update_map, date=date_slider)
+
+# Aggiungi lo slider alla mappa
+m.add_child(date_slider)
+m
+
+# Mostra la mappa
+m.show()
